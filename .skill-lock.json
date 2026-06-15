@@ -18,6 +18,15 @@
       "skillFolderHash": "3013fdeb8a11b10b1eb795ec3ae8bfca38f7c26d",
       "installedAt": "2026-04-17T16:06:06.135Z",
       "updatedAt": "2026-04-17T16:06:06.135Z"
+    },
+    "gpt-researcher": {
+      "source": "assafelovic/gpt-researcher",
+      "sourceType": "github",
+      "sourceUrl": "https://github.com/assafelovic/gpt-researcher.git",
+      "skillPath": ".claude/SKILL.md",
+      "skillFolderHash": "29379224ae1efe36dfec53d110f53c77fc30d5ba",
+      "installedAt": "2026-06-14T16:46:36.275Z",
+      "updatedAt": "2026-06-14T16:46:36.275Z"
     }
   },
   "dismissed": {
@@ -26,16 +35,17 @@
   "lastSelectedAgents": [
     "amp",
     "antigravity",
+    "antigravity-cli",
     "cline",
     "codex",
     "cursor",
     "deepagents",
-    "firebender",
     "gemini-cli",
     "github-copilot",
-    "kimi-cli",
+    "kimi-code-cli",
     "opencode",
     "warp",
+    "zed",
     "claude-code"
   ]
 }
