@@ -51,7 +51,9 @@ Goal: break the complex problem into smaller, individually-solvable challenges �
 Goal: publish thinking and planning to Notion so the team can track progress at a company level.
 
 - **Only ever on the user's explicit request.** Never auto-upload, never offer to upload as the default next step.
-- Follow [references/notion-upload.md](references/notion-upload.md): detect-or-create the R&D tracking database under the dedicated R&D page, create/update this project's Notion page(s) with the **full content** of the problem statement and plan, set the database properties (Status, Phase, Profiles needed, Business value, Priority, Mendo integration area), and keep **every link Notion-internal**.
+- **The Notion structure is canonical and LOCKED.** A single `R&D Topics` database already exists under the R&D page; reuse it by ID — never recreate it or invent a different shape. Each topic is one row with three sub-pages (Problem Statement, Plan, Research Log). [references/notion-upload.md](references/notion-upload.md) holds the exact IDs, properties (Name, Status, Owner, Priority, Profiles needed, Theme, Mendo integration area, Business value, Related Topics, Depends on/Blocks, Linear), views, and sub-page layout — follow it strictly.
+- Create/update this project's row and publish the **full content** of the problem statement and plan into its sub-pages; keep **every link Notion-internal**.
+- **If the structure can't serve the task, don't silently adapt it** — propose a specific change for the user to review (per the *Proposing a structure change* section of the runbook), apply only on approval, and update the runbook so it stays the source of truth.
 - Confirm the target with the user before writing, and report back the Notion URL(s) created.
 
 ## Behaviour (applies across all actions)
