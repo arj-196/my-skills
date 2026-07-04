@@ -21,7 +21,7 @@ VAULT_FILE = (
     / "Library/Mobile Documents/iCloud~md~obsidian/Documents/ArjVaultICloud"
     / "A2 - TODO Apps.md"
 )
-STATE_FILE = Path.home() / ".claude/skills/robin/state/state.json"
+STATE_FILE = Path("/Users/arjun/Mendo/playground/Robin/state.json")
 
 # Stages that require model attention on a tick.
 # - grilling / review: must check the Slack thread for replies

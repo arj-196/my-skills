@@ -16,7 +16,7 @@ human interaction happening in Slack and all task history in Notion.
 | Slack channel | `C0BF5RJN6EN` (#99-arj-robin) |
 | Arjun's Slack ID | `U0B71TMF690` |
 | Notion home page | https://app.notion.com/p/mendo-ai/Robin-3935ce63a40b803d8ac1f41d09fae5a7 (page id `3935ce63a40b803d8ac1f41d09fae5a7`) |
-| State cache | `~/.claude/skills/robin/state/state.json` |
+| State cache | `/Users/arjun/Mendo/playground/Robin/state.json` (runtime data — lives outside the skill repo) |
 | Pre-check gate | `python3 ~/.claude/skills/robin/scripts/precheck.py` |
 
 Read `CONTEXT.md` (same directory) for the glossary and `docs/adr/` for why the
