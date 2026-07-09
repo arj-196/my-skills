@@ -22,7 +22,9 @@ state store. The definitions there are binding — do not silently change them.
 | Arjun / viewer | Arj — arjun@mendo.cloud |
 | Telegram target | chat id `8628776494` (deliver via the cron job's `deliver='telegram:8628776494'`) |
 | Last-run stamp | `~/.hermes/arj-focus/last_run.txt` (ISO timestamp; the ONLY local state) |
-| Integration layer | headless `claude -p` — the single path to Slack, Outlook, Linear |
+| Integration — Slack/Outlook | headless `claude -p` (MCP connected there) |
+| Integration — Linear ARJ | `scripts/linear_arj.py` via GraphQL + `LINEAR_ARJ_API_KEY` (Claude's Linear MCP is scoped to Mendo and CANNOT reach ARJ — see ADR 0002) |
+| API key | `LINEAR_ARJ_API_KEY` in `~/.hermes/.env` (chmod 600, never committed) |
 
 ## Core rule
 
@@ -42,10 +44,11 @@ Read `~/.hermes/arj-focus/last_run.txt`.
 
 Do NOT update the stamp yet — only after a successful Run (Step 6).
 
-### Step 2 — Pull Signals (one headless call)
+### Step 2 — Pull Signals (Slack + Outlook via one headless call)
 
-Invoke Claude Code headlessly to gather Signals from all three sources in the
-narrow v1 scope (CONTEXT.md → Source scope). Grant the exact tools:
+Invoke Claude Code headlessly to gather Signals from Slack and Outlook in the
+narrow v1 scope (CONTEXT.md → Source scope). **Linear signals are NOT gathered
+here** — ARJ is read directly in Step 3 via the helper. Grant the exact tools:
 
 ```
 claude -p "<signal-gathering prompt>" \
@@ -55,10 +58,7 @@ claude -p "<signal-gathering prompt>" \
     "mcp__claude_ai_Slack__slack_search_public" \
     "mcp__claude_ai_Slack__slack_read_thread" \
     "mcp__claude_ai_Slack__slack_read_user_profile" \
-    "mcp__claude_ai_Microsoft_365__outlook_email_search" \
-    "mcp__claude_ai_Linear__list_issues" \
-    "mcp__claude_ai_Linear__get_issue" \
-    "mcp__claude_ai_Linear__list_comments"
+    "mcp__claude_ai_Microsoft_365__outlook_email_search"
 ```
 
 The prompt must ask for, within the window:
@@ -67,24 +67,31 @@ The prompt must ask for, within the window:
   message ts, ISO time, one-line gist.
 - **Outlook**: unread inbox mail addressed directly to Arjun (to/cc). Exclude
   newsletters/bulk. For each: sender, message-id, ISO time, subject + gist.
-- **Linear (ARJ)**: open issues assigned to Arjun or @-mentioning him. For
-  each: identifier, id, title, gist.
 
 Require structured output (one Signal per line with its **stable ID**) so the
 IDs can be used as Source anchors.
 
-### Step 3 — Fetch current Tickets (dedup basis)
+### Step 3 — Fetch current Tickets (ARJ read + Linear signals)
 
-`list_issues` for team ARJ in **all** states (open + recently closed). For each,
-read the **Source anchors** recorded in its description. Linear is the sole
-source of truth (ADR 0001) — trust it over any assumption.
+Run `python3 scripts/linear_arj.py list` (needs `LINEAR_ARJ_API_KEY` in env —
+source `~/.hermes/.env` first). This returns every ARJ issue in all states with
+its `description` (where Source anchors live) and `priority`/`state`. This
+single call covers BOTH:
+- the **dedup basis** (existing Tickets + their anchors), and
+- **Linear as a Signal source** (an open issue assigned to / mentioning Arjun
+  that has no arj-focus anchor is itself a Commitment already captured — do not
+  duplicate it; treat pre-existing ARJ issues as already-tracked).
+
+Linear is the sole source of truth (ADR 0001).
 
 ### Step 4 — Reconcile (CONTEXT.md → Reconciliation rules)
 
-For each Signal, match its stable ID against the anchors:
-- **Anchor → OPEN Ticket, new thread activity** → `save_comment` on that Ticket
-  ("follow-up received <time>: <gist>") and raise Priority if warranted. **Never
-  create a second Ticket.**
+For each Slack/Outlook Signal, match its stable ID against the anchors found in
+Step 3:
+- **Anchor → OPEN Ticket, new thread activity** →
+  `python3 scripts/linear_arj.py comment <issue-id> "follow-up received <time>: <gist>"`
+  and raise Priority via `set_priority <issue-id> <0-4>` if warranted.
+  **Never create a second Ticket.**
 - **Anchor → CLOSED Ticket** (Done/Canceled) → already handled. Stay silent.
 - **No anchor match** → candidate new Commitment. Judge: is there a real action
   Arjun must take? If yes → Step 5. If it's noise/FYI → drop it (no Ticket).
@@ -93,18 +100,21 @@ Anchor suppression is per-message/thread ID and lasts forever.
 
 ### Step 5 — Create Tickets for new Commitments
 
-For each new Commitment, `save_issue` in team ARJ with:
-- **Title** — the commitment as an action ("Reply to Bérengère re: Marcel Tessier").
-- **Priority** — set per CONTEXT.md → Urgency (task-first; sender is a modifier).
-- **Description** — must contain:
-  - **Delivery checklist** — concrete steps, possibly multi-channel
-    (e.g. "- [ ] post in #fifty-talents\n- [ ] email Bérengère").
-  - **why this priority:** one line of rationale (so Arjun can correct it).
-  - **Source anchors:** every originating stable ID, one per line
-    (`source: slack:<permalink>` / `source: outlook:<message-id>` / `source: linear:<id>`).
+For each new Commitment:
+`python3 scripts/linear_arj.py create '<json>'` where json is
+`{"title": ..., "priority": <0-4>, "description": ...}`.
+Priority map: 0 none · 1 urgent · 2 high · 3 medium · 4 low. New Tickets default
+to the **Todo** state (active), not Backlog.
 
-Writes go through Claude Code's Linear MCP (`save_issue`, `save_comment`) — same
-`claude -p` mechanism, add those two tools to `--allowedTools`. No raw API key.
+The **description** must contain:
+- **Delivery checklist** — concrete steps, possibly multi-channel
+  (e.g. "- [ ] post in #fifty-talents\n- [ ] email Bérengère").
+- **why this priority:** one line of rationale (so Arjun can correct it).
+- **Source anchors:** every originating stable ID, one per line
+  (`source: slack:<permalink>` / `source: outlook:<message-id>`).
+
+All ARJ writes go through `scripts/linear_arj.py` (GraphQL + personal key), NOT
+through Claude's Linear MCP, which cannot see the ARJ workspace (ADR 0002).
 
 ### Step 6 — Recap + stamp
 
@@ -132,6 +142,10 @@ update the stamp (so the next Run re-covers the window) and say so in the Recap.
   states, not just open ones.
 - **Bots are never Commitments** — Linear/Revo/Notion Slack relays get dropped
   even though they appear as DMs.
-- **Rotate the key**: the raw Linear API key Arjun once pasted is unused by this
-  workflow (all Linear access is via Claude Code MCP). It should be rotated and
-  discarded; never persist it anywhere.
+- **Linear MCP ≠ ARJ**: Claude Code's connected Linear MCP is scoped to the
+  Mendo org and returns nothing for team ARJ. ALL ARJ access must go through
+  `scripts/linear_arj.py` (personal key). Do not try to read/write ARJ via
+  `claude -p` MCP tools — that was the v1 bug (ADR 0002).
+- **Key hygiene**: `LINEAR_ARJ_API_KEY` lives only in `~/.hermes/.env`
+  (chmod 600, outside git). The key value pasted in chat during setup should be
+  rotated in Linear and the fresh value written to `.env`; never commit it.
