@@ -9,9 +9,10 @@ queryable status. We considered the same here.
 **Decision.** arj-focus keeps **no meaningful local state**. Each Run queries
 the ARJ Linear workspace for Tickets in all states, reads the Source anchors out
 of their descriptions, and dedups against that live. The only thing persisted
-locally is a trivial last-run timestamp (`last_run.txt`) used to size the window
-and compute the "N new since last run" footer; if it is missing, the Run falls
-back to a 24h window. Linear is the single source of truth.
+locally is a trivial last-run timestamp (`last_run.txt`) used to compute the
+"N new since last run" footer and to distinguish a first-ever Run; the scan
+window is a fixed rolling 7 days on every Run (see SKILL.md → Step 1). Linear is
+the single source of truth.
 
 **Why.** At Arjun's ticket volume (dozens, not thousands) fetching open +
 recently-closed ARJ Tickets each Run is cheap, and one source of truth

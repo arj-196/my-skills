@@ -19,10 +19,11 @@ state store. The definitions there are binding — do not silently change them.
 | What | Value |
 |---|---|
 | Linear workspace | "Arjun Chatterjee" (urlKey `arjun-chatterjee`), team **ARJ**, id `9cfe0eac-3600-4f74-a20a-8dcc2415ee2c` |
-| Arjun / viewer | Arj — arjun@mendo.cloud |
+| Arjun / viewer | Arj — arjun@mendo.cloud (Linear user id `8576cf51-89d0-40e3-aee7-f82bcf3be6f5`; new Tickets auto-assigned to him so they show in "Assigned to me") |
 | Telegram target | chat id `8628776494` (deliver via the cron job's `deliver='telegram:8628776494'`) |
 | Last-run stamp | `~/.hermes/arj-focus/last_run.txt` (ISO timestamp; the ONLY local state) |
 | Integration — Slack/Outlook | headless `claude -p` (MCP connected there) |
+| Slack member ID | `U0B71TMF690` (handle `arjun`, display "Arj") — used to search channel @-mentions via `<@U0B71TMF690>` |
 | Integration — Linear ARJ | `scripts/linear_arj.py` via GraphQL + `LINEAR_ARJ_API_KEY` (Claude's Linear MCP is scoped to Mendo and CANNOT reach ARJ — see ADR 0002) |
 | API key | `LINEAR_ARJ_API_KEY` in `~/.hermes/.env` (chmod 600, never committed) |
 
@@ -38,9 +39,11 @@ Notion Slack bots) are never Commitments.
 
 ### Step 1 — Window
 
-Read `~/.hermes/arj-focus/last_run.txt`.
-- **Missing** (first Run ever) → window = last **7 days** (seed the backlog).
-- **Present** → window = last **24 hours** (deliberate overlap; dedup handles it).
+Every Run scans a rolling **7-day** window of each source (Arjun's explicit
+choice — 24h missed slow-burn threads). Read `~/.hermes/arj-focus/last_run.txt`
+only to distinguish a first-ever Run (missing stamp) from a normal Run; the
+window is 7 days either way. Dedup via Source anchors makes the heavy overlap
+between Runs harmless.
 
 Do NOT update the stamp yet — only after a successful Run (Step 6).
 
@@ -56,17 +59,40 @@ claude -p "<signal-gathering prompt>" \
   --allowedTools \
     "mcp__claude_ai_Slack__slack_search_public_and_private" \
     "mcp__claude_ai_Slack__slack_search_public" \
+    "mcp__claude_ai_Slack__slack_search_channels" \
+    "mcp__claude_ai_Slack__slack_read_channel" \
     "mcp__claude_ai_Slack__slack_read_thread" \
     "mcp__claude_ai_Slack__slack_read_user_profile" \
-    "mcp__claude_ai_Microsoft_365__outlook_email_search"
+    "mcp__claude_ai_Microsoft_365__outlook_email_search" \
+    "mcp__claude_ai_Microsoft_365__read_resource"
 ```
 
 The prompt must ask for, within the window:
-- **Slack**: DMs + group DMs + channel @-mentions (`to:me` search). Exclude
-  pure bot/tool relay messages. For each: sender, channel/DM, permalink or
-  message ts, ISO time, one-line gist.
-- **Outlook**: unread inbox mail addressed directly to Arjun (to/cc). Exclude
-  newsletters/bulk. For each: sender, message-id, ISO time, subject + gist.
+- **Slack (incoming)**: DMs + group DMs **+ @-mentions in channels Arjun follows**.
+  Search channel mentions with the query `<@U0B71TMF690>` (his member ID) — this
+  is the ONLY reliable mentions query; `to:me` matches DMs, not `@`-mentions, and
+  returns nothing for channel mentions (verified). Paginate past the first 20
+  results if a `next_cursor` is returned. Exclude pure bot/tool relay messages.
+  For each: sender, channel/DM, permalink or message ts, ISO time, one-line gist.
+- **Slack (outgoing — messages ARJUN sent others)**: search `from:<@U0B71TMF690>`
+  across DMs and channels in the window. For each thread Arjun sent into, read
+  the thread (`slack_read_thread`) and judge whether the conversation is left
+  **pending on the OTHER person** — i.e. Arjun asked a question / made a request /
+  is waiting on a reply or an action, and the counterpart has NOT yet responded
+  or delivered. This is a Commitment for Arjun to **chase/follow-up**, not to
+  reply. Report: counterpart, channel/DM, Arjun's message permalink+ts, ISO time,
+  the ask, and whether a reply exists after it. Skip threads that are clearly
+  resolved (counterpart answered, or it was social/FYI with no open ask).
+- **Outlook**: mail addressed directly to Arjun (to/cc) within the window —
+  **read AND unread** (not just unread). Exclude newsletters/bulk. For each:
+  sender, message-id, **conversationId/thread-id**, ISO time, subject + gist,
+  **and whether Arjun has already replied on that thread** (i.e. a message from
+  arjun@mendo.cloud later than the incoming mail — read the conversation via
+  `read_resource` to check). Also, for threads where Arjun HAS replied, judge
+  whether his reply **closed the loop or left a pending task** (he promised to
+  send something, asked the counterpart for something and awaits it, or the ask
+  is only partially handled). Report the reply's ISO time, one-line gist, and a
+  `pending: yes/no` flag with what remains if yes.
 
 Require structured output (one Signal per line with its **stable ID**) so the
 IDs can be used as Source anchors.
@@ -95,8 +121,41 @@ Step 3:
 - **Anchor → CLOSED Ticket** (Done/Canceled) → already handled. Stay silent.
 - **No anchor match** → candidate new Commitment. Judge: is there a real action
   Arjun must take? If yes → Step 5. If it's noise/FYI → drop it (no Ticket).
+  This now includes **outgoing-thread Commitments**: a Slack/email thread Arjun
+  started that is left **pending on someone else** becomes a "chase/follow-up"
+  Ticket (checklist: "- [ ] nudge <person> re: <ask>"). Its done-state is the
+  counterpart having replied/delivered.
 
 Anchor suppression is per-message/thread ID and lasts forever.
+
+### Step 4b — Done-detection (is the loop actually closed, with NO pending task?)
+
+A Commitment is done ONLY when the loop is closed and nothing is left pending —
+NOT merely because a reply exists or a mail was read. Using the reply/pending
+signals from Step 2, for every OPEN Ticket:
+
+- **Outlook "reply-to" Commitments** — close (`set_state <issue-id> Done`) ONLY
+  when Arjun has replied AND that reply left **no pending task** (Step 2's
+  `pending: no`). If he replied but promised something / asked for something and
+  awaits it / handled it only partially (`pending: yes`) → keep the Ticket OPEN,
+  `comment` the progress ("replied <time> but still owes: <what>"), and update
+  the Delivery checklist to the remaining item. Reading-without-replying is never
+  done.
+- **Outgoing "chase" Commitments** (Slack or email threads Arjun is waiting on) —
+  close when the counterpart has responded/delivered (loop closed). If still
+  waiting → keep open; add a `comment` if a nudge is overdue and consider raising
+  priority.
+- **Multi-channel Commitments** — close only when EVERY checklist item has
+  evidence. If the checklist needs a Slack post AND an email and only one is
+  found, comment progress but keep it open.
+
+Close with a one-line `comment` recording the evidence, e.g.
+"auto-closed: reply detected <ISO time>, loop closed, no pending — <gist>".
+This is the ONLY path that auto-closes a Ticket.
+
+Be conservative: if it is ambiguous whether the loop is truly closed (a bare
+"thanks", an out-of-office, a forward, a promise still outstanding), keep the
+Ticket OPEN and note the uncertainty in a comment rather than closing it.
 
 ### Step 5 — Create Tickets for new Commitments
 
@@ -104,7 +163,9 @@ For each new Commitment:
 `python3 scripts/linear_arj.py create '<json>'` where json is
 `{"title": ..., "priority": <0-4>, "description": ...}`.
 Priority map: 0 none · 1 urgent · 2 high · 3 medium · 4 low. New Tickets default
-to the **Todo** state (active), not Backlog.
+to the **Todo** state (active), not Backlog, and are **auto-assigned to Arjun**
+(assigneeId defaults to his user id) so they appear in his "Assigned to me"
+Linear view — an unassigned Ticket is invisible in his normal filters.
 
 The **description** must contain:
 - **Delivery checklist** — concrete steps, possibly multi-channel
@@ -122,7 +183,7 @@ Compose the **Recap** (CONTEXT.md → Recap shape) and make it this job's final
 message so the cron delivers it to Telegram:
 - Urgent + High listed by title (`ARJ-NN · commitment`); Medium/Low counted with
   a deep link to the filtered ARJ view.
-- Footer: `N new since last run · N nudged · N open total`.
+- Footer: `N new since last run · N nudged · N auto-closed · N open total`.
 - **Empty Run** → one-line heartbeat ("✅ All clear — N open, none urgent"),
   never silence.
 
@@ -135,9 +196,10 @@ update the stamp (so the next Run re-covers the window) and say so in the Recap.
 - **Permission gate**: headless `claude -p` silently refuses MCP calls unless the
   exact tool names are in `--allowedTools`. If a source returns nothing,
   suspect a missing/renamed tool grant before concluding "no Signals".
-- **Slack has no true mentions endpoint** — the `to:me` search is a proxy; an
-  oddly-phrased channel @-mention can be missed. Arjun feeds back real misses;
-  do not widen scope preemptively.
+- **Slack has no true mentions endpoint** — for channel @-mentions use the
+  `<@U0B71TMF690>` search query (Arjun's member ID), NOT `to:me` (which only
+  matches DMs and returns zero for channel mentions). Paginate past 20 results.
+  Arjun feeds back real misses; do not widen scope further preemptively.
 - **Never re-ticket a closed thread** — always check anchors across ALL Ticket
   states, not just open ones.
 - **Bots are never Commitments** — Linear/Revo/Notion Slack relays get dropped

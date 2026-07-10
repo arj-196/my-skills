@@ -12,6 +12,7 @@ Usage:
   linear_arj.py create <json>        # create issue; json: {title, description, priority}
   linear_arj.py comment <id> <text>  # add a comment to an issue
   linear_arj.py set_priority <id> <0-4>
+  linear_arj.py set_state <id> <StateName>  # move issue to a workflow state by name (e.g. Done, Canceled, "In Progress")
 
 Priority: 0 none, 1 urgent, 2 high, 3 medium, 4 low.
 Exit non-zero on any API error so the caller can avoid advancing last_run.txt.
@@ -23,6 +24,10 @@ import urllib.request
 import urllib.error
 
 TEAM_ID = "9cfe0eac-3600-4f74-a20a-8dcc2415ee2c"
+# Arjun's Linear user id (viewer arjun@mendo.cloud). New Tickets are assigned to
+# him by default so they appear in his "Assigned to me" view — an unassigned
+# issue is invisible in his normal Linear filters.
+ARJ_USER_ID = "8576cf51-89d0-40e3-aee7-f82bcf3be6f5"
 API = "https://api.linear.app/graphql"
 
 
@@ -80,6 +85,9 @@ def cmd_create(payload_json):
         "priority": int(p.get("priority", 0)),
         # default new Tickets to Todo (active), not Backlog
         "stateId": p.get("stateId", "fad22da0-cfe6-4310-8384-7f6d97f5a13d"),
+        # assign to Arjun by default so the Ticket shows in his "Assigned to me"
+        # view; override by passing "assigneeId" in the payload
+        "assigneeId": p.get("assigneeId", ARJ_USER_ID),
     }
     d = gql(q, {"i": inp})["issueCreate"]
     print(json.dumps(d, ensure_ascii=False))
@@ -97,6 +105,26 @@ def cmd_set_priority(issue_id, pri):
     print(json.dumps(gql(q, {"id": issue_id, "i": {"priority": int(pri)}})))
 
 
+def cmd_set_state(issue_id, state_name):
+    """Move an issue to a workflow state resolved by name (case-insensitive).
+
+    Used by done-detection: when a Commitment's Delivery checklist is satisfied
+    (e.g. Arjun's reply is found on the Outlook thread), move its Ticket to Done.
+    Resolving by name avoids hard-coding state IDs.
+    """
+    sq = """
+    query($t:String!){ team(id:$t){ states(first:50){ nodes { id name type } } } }"""
+    states = gql(sq, {"t": TEAM_ID})["team"]["states"]["nodes"]
+    match = next((s for s in states if s["name"].lower() == state_name.lower()), None)
+    if not match:
+        avail = ", ".join(s["name"] for s in states)
+        sys.exit(f"ERROR: no state named {state_name!r}. Available: {avail}")
+    mq = """
+    mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }"""
+    out = gql(mq, {"id": issue_id, "i": {"stateId": match["id"]}})
+    print(json.dumps({"issueUpdate": out["issueUpdate"], "movedTo": match["name"]}))
+
+
 def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
@@ -109,6 +137,8 @@ def main():
         cmd_comment(sys.argv[2], sys.argv[3])
     elif cmd == "set_priority":
         cmd_set_priority(sys.argv[2], sys.argv[3])
+    elif cmd == "set_state":
+        cmd_set_state(sys.argv[2], sys.argv[3])
     else:
         sys.exit(f"unknown command: {cmd}")
 

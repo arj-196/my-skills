@@ -83,10 +83,10 @@ Example:
 **Run**:
 One scheduled execution of the workflow (currently 08:00 and 13:00). Pulls
 Signals, reconciles them against existing Tickets, creates new Tickets for new
-Commitments, and sends the Recap. Scans a rolling 24h window of each source;
-the very first Run ever performed backfills 1 week to seed the backlog, and
-every subsequent Run uses the 24h window. Dedup (via Source anchors) makes the
-overlapping windows and any skipped/retried Run harmless.
+Commitments, and sends the Recap. Scans a rolling **7-day** window of each
+source on every Run (Arjun's explicit choice — a 24h window missed slow-burn
+threads). Dedup (via Source anchors) makes the heavy overlap between Runs and
+any skipped/retried Run harmless.
 _Avoid_: tick (that's Robin's term), job, cycle
 
 ## Source scope (v1 — deliberately narrow)
@@ -94,10 +94,17 @@ _Avoid_: tick (that's Robin's term), job, cycle
 Kept small and accurate on purpose; widened only when Arjun's feedback shows a
 real Signal was missed.
 
-- **Slack**: DMs + group DMs + channel @-mentions (via `to:me` search proxy).
-  No scanning of un-mentioned channel traffic in v1.
-- **Outlook**: unread inbox mail addressed directly to Arjun (to/cc), within the
-  window. Newsletters/bulk excluded.
+- **Slack**: DMs + group DMs + @-mentions in channels Arjun follows (via the
+  `<@U0B71TMF690>` member-ID search — `to:me` only catches DMs, not channel
+  mentions), **plus threads Arjun himself started/sent into** (`from:<@U0B71TMF690>`)
+  that are left pending on the other person. Channel mentions matter because
+  important asks land in followed channels, not only in direct messages; and a
+  message he sent that no one has actioned is an open loop he needs to chase.
+- **Outlook**: mail addressed directly to Arjun (to/cc), within the window,
+  **read and unread**. His replies on threads are read too, to verify the loop
+  is closed with no pending task — a Ticket auto-closes only once he has
+  responded AND nothing is left outstanding (a reply that promises or awaits
+  something keeps the Ticket open). Newsletters/bulk excluded.
 - **Linear** (ARJ workspace): open issues assigned to Arjun or @-mentioning him.
 
 ## Urgency
