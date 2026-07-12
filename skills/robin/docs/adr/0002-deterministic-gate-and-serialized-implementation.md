@@ -6,18 +6,23 @@ Status: accepted
 ## Context
 
 Arjun wants a 30-minute cadence (≈48 ticks/day) but most ticks find nothing:
-no new bullets, no Slack replies. Paying model tokens to discover "nothing"
-48 times a day is waste. Separately, the first thing Arjun ever wrote about
-Robin was a bug report: "the runner is picking up multiple tasks and I don't
-think any of them is running" — unbounded parallel implementation produced
-zero finished work.
+no new feedback, no new Notion answers. Paying model tokens to discover
+"nothing" 48 times a day is waste. Separately, the first thing Arjun ever wrote
+about Robin was a bug report: "the runner is picking up multiple tasks and I
+don't think any of them is running" — unbounded parallel implementation
+produced zero finished work.
 
 ## Decision
 
-1. Every tick starts with `scripts/precheck.py`, a pure-Python, read-only
-   gate that parses the inbox and state.json and prints NOOP or WORK. On
-   NOOP the model stops immediately — no Slack, no Notion, no exploration.
-   Slack is only queried when state says a task is actually awaiting a reply.
+1. Every tick starts with `scripts/precheck.py`, a pure-Python, read-only,
+   ZERO-model-token gate that prints NOOP or WORK. On NOOP the model stops
+   immediately — no bridge call, no Notion body read, no exploration. It
+   detects change from two cheap sources only: unprocessed rows in the local
+   feedback log, and — for tasks marked `awaiting_answer` — a Notion page whose
+   `last_edited_time` moved since Robin last read it (a plain Notion REST poll,
+   not the LLM bridge, and never a page-body read). A Notion page body is read
+   (via the bridge) ONLY after the gate confirms that page changed. (Revised
+   from the original vault-parsing gate — see ADR 0003.)
 2. Cheap stages (ingest, grilling, planning, review) advance for ALL tasks
    every tick, but at most ONE task is in `implementing` at a time
    (`implementing_now` lock); approved tasks queue behind it.
