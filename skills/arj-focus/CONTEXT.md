@@ -26,8 +26,11 @@ The Linear issue in the ARJ workspace that represents exactly one Commitment.
 Created automatically by the workflow. Its body carries two things: the
 **Delivery checklist** (the concrete steps to satisfy the Commitment, which may
 span channels — e.g. "post in #fifty-talents, then email Bérengère") and the
-**Source anchors** (every Signal that fed it, for dedup). Arjun steers the
-workflow's judgment by leaving feedback as comments on Tickets.
+**Source anchors** (every Signal that fed it, for dedup). It also carries
+exactly one **Theme** sub-label (recruitment / team / management / client /
+product / engineering / ops) for quick at-a-glance context on the board and in
+the Recap. Arjun steers the workflow's judgment by leaving feedback as comments
+on Tickets.
 _Avoid_: issue, card
 
 **Delivery checklist**:
@@ -54,8 +57,8 @@ _Avoid_: digest, summary, report
 ### Recap shape
 
 - Only **Urgent + High** Tickets are listed by title, one line each:
-  `ARJ-NN · one-line commitment`. No source detail or rationale in the Recap —
-  those live in the Ticket.
+  `ARJ-NN · [theme] one-line commitment`. No source detail or rationale in the
+  Recap — those live in the Ticket.
 - **Medium + Low** are counted, not enumerated, with a deep link to the full
   filtered Linear view.
 - Footer shows what changed this Run: `N new since last run · N nudged · N open total`.
@@ -69,11 +72,11 @@ Example:
 🎯 Focus — Wed 8am
 
 🔴 Urgent (2)
-• ARJ-42 · Reply to Bérengère re: Marcel Tessier next steps
-• ARJ-45 · Send Q3 budget approval — finance blocked on you
+• ARJ-42 · [recruitment] Reply to Bérengère re: Marcel Tessier next steps
+• ARJ-45 · [ops] Send Q3 budget approval — finance blocked on you
 
 🟠 High (3)
-• ARJ-43 · Review Vincent's intent-extraction plan
+• ARJ-43 · [product] Review Vincent's intent-extraction plan
 • ...
 
 +7 Medium/Low → <linear filtered view link>

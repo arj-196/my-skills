@@ -8,13 +8,17 @@ The key is read from the LINEAR_ARJ_API_KEY env var (stored in ~/.hermes/.env,
 chmod 600, never committed). See docs/adr/0002.
 
 Usage:
-  linear_arj.py list                 # all ARJ issues, any state, with description (for anchor dedup)
-  linear_arj.py create <json>        # create issue; json: {title, description, priority}
+  linear_arj.py list                 # all ARJ issues, any state, with description + labels (for anchor dedup)
+  linear_arj.py create <json>        # create issue; json: {title, description, priority, theme?}
   linear_arj.py comment <id> <text>  # add a comment to an issue
   linear_arj.py set_priority <id> <0-4>
   linear_arj.py set_state <id> <StateName>  # move issue to a workflow state by name (e.g. Done, Canceled, "In Progress")
+  linear_arj.py label <id> <theme>   # add a Theme sub-label to an existing issue (backfill/reclassify)
+  linear_arj.py themes               # list the valid Theme sub-label names
 
 Priority: 0 none, 1 urgent, 2 high, 3 medium, 4 low.
+Theme: exactly one of recruitment, team, management, client, product, engineering, ops
+(a sub-label under the "Theme" parent group; gives quick at-a-glance context).
 Exit non-zero on any API error so the caller can avoid advancing last_run.txt.
 """
 import json
@@ -28,6 +32,11 @@ TEAM_ID = "9cfe0eac-3600-4f74-a20a-8dcc2415ee2c"
 # him by default so they appear in his "Assigned to me" view — an unassigned
 # issue is invisible in his normal Linear filters.
 ARJ_USER_ID = "8576cf51-89d0-40e3-aee7-f82bcf3be6f5"
+# Valid Theme sub-labels (children of the "Theme" parent group). Every Ticket
+# gets exactly one so the board/recap carry quick context at a glance.
+THEME_PARENT = "Theme"
+THEMES = ["recruitment", "team", "management", "client", "product",
+          "engineering", "ops"]
 API = "https://api.linear.app/graphql"
 
 
@@ -62,11 +71,40 @@ def gql(query, variables=None):
     return out["data"]
 
 
+def _label_map():
+    """Return {label_name_lower: id} for the Theme sub-labels in this team.
+
+    Resolves by name so no label IDs are hard-coded. The Theme group and its
+    sub-labels are created once (see SKILL.md → Theme labels); this just reads
+    them back.
+    """
+    q = """
+    query($t:String!){ team(id:$t){ labels(first:100){ nodes {
+      id name isGroup parent { name }
+    } } } }"""
+    nodes = gql(q, {"t": TEAM_ID})["team"]["labels"]["nodes"]
+    # only sub-labels under the Theme parent group
+    return {n["name"].lower(): n["id"] for n in nodes
+            if n.get("parent") and n["parent"]["name"] == THEME_PARENT}
+
+
+def _theme_id(theme):
+    theme = theme.strip().lower()
+    if theme not in THEMES:
+        sys.exit(f"ERROR: invalid theme {theme!r}. Valid: {', '.join(THEMES)}")
+    m = _label_map()
+    if theme not in m:
+        sys.exit(f"ERROR: theme label {theme!r} not found in Linear. "
+                 f"Create the Theme group + sub-labels first (see SKILL.md).")
+    return m[theme]
+
+
 def cmd_list():
     q = """
     query($t:String!){ team(id:$t){ issues(first:250){ nodes {
       id identifier title priority
       state { name type }
+      labels { nodes { name parent { name } } }
       description
     } } } }"""
     nodes = gql(q, {"t": TEAM_ID})["team"]["issues"]["nodes"]
@@ -89,6 +127,11 @@ def cmd_create(payload_json):
         # view; override by passing "assigneeId" in the payload
         "assigneeId": p.get("assigneeId", ARJ_USER_ID),
     }
+    # exactly one Theme sub-label for quick context (recruitment/team/...).
+    # Pass "theme" in the payload; it is resolved to a label id by name.
+    theme = p.get("theme")
+    if theme:
+        inp["labelIds"] = [_theme_id(theme)]
     d = gql(q, {"i": inp})["issueCreate"]
     print(json.dumps(d, ensure_ascii=False))
 
@@ -125,6 +168,30 @@ def cmd_set_state(issue_id, state_name):
     print(json.dumps({"issueUpdate": out["issueUpdate"], "movedTo": match["name"]}))
 
 
+def cmd_label(issue_id, theme):
+    """Add a Theme sub-label to an existing issue (backfill / reclassify).
+
+    Linear's issueUpdate REPLACES the full label set, so fetch current labels
+    first and append the theme, dropping any other Theme sub-label so an issue
+    carries exactly one theme.
+    """
+    tid = _theme_id(theme)
+    theme_ids = set(_label_map().values())
+    cur = gql("""query($id:String!){ issue(id:$id){ labels{ nodes{ id } } } }""",
+              {"id": issue_id})["issue"]["labels"]["nodes"]
+    # keep non-theme labels, drop any existing theme, add the new one
+    keep = [l["id"] for l in cur if l["id"] not in theme_ids]
+    new_ids = keep + [tid]
+    mq = """
+    mutation($id:String!,$i:IssueUpdateInput!){ issueUpdate(id:$id,input:$i){ success } }"""
+    out = gql(mq, {"id": issue_id, "i": {"labelIds": new_ids}})
+    print(json.dumps({"issueUpdate": out["issueUpdate"], "theme": theme.lower()}))
+
+
+def cmd_themes():
+    print(json.dumps(THEMES))
+
+
 def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
@@ -139,6 +206,10 @@ def main():
         cmd_set_priority(sys.argv[2], sys.argv[3])
     elif cmd == "set_state":
         cmd_set_state(sys.argv[2], sys.argv[3])
+    elif cmd == "label":
+        cmd_label(sys.argv[2], sys.argv[3])
+    elif cmd == "themes":
+        cmd_themes()
     else:
         sys.exit(f"unknown command: {cmd}")
 

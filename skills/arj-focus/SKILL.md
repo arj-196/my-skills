@@ -161,11 +161,17 @@ Ticket OPEN and note the uncertainty in a comment rather than closing it.
 
 For each new Commitment:
 `python3 scripts/linear_arj.py create '<json>'` where json is
-`{"title": ..., "priority": <0-4>, "description": ...}`.
+`{"title": ..., "priority": <0-4>, "description": ..., "theme": "<theme>"}`.
 Priority map: 0 none · 1 urgent · 2 high · 3 medium · 4 low. New Tickets default
 to the **Todo** state (active), not Backlog, and are **auto-assigned to Arjun**
 (assigneeId defaults to his user id) so they appear in his "Assigned to me"
 Linear view — an unassigned Ticket is invisible in his normal filters.
+
+**Always classify the Commitment with exactly one `theme`** (see "Theme labels"
+below) so the Ticket carries quick at-a-glance context. Pick the single best-fit
+theme from: `recruitment`, `team`, `management`, `client`, `product`,
+`engineering`, `ops`. `create` applies it as a Theme sub-label. To (re)label an
+existing Ticket use `python3 scripts/linear_arj.py label <issue-id> <theme>`.
 
 The **description** must contain:
 - **Delivery checklist** — concrete steps, possibly multi-channel
@@ -177,11 +183,33 @@ The **description** must contain:
 All ARJ writes go through `scripts/linear_arj.py` (GraphQL + personal key), NOT
 through Claude's Linear MCP, which cannot see the ARJ workspace (ADR 0002).
 
+#### Theme labels (quick context)
+
+Every Ticket gets exactly one **Theme** sub-label — a child of the `Theme`
+parent label group in Linear — so the board and Recap read at a glance. The
+taxonomy (create new sub-labels only on Arjun's request, keep it small):
+
+| theme | use for |
+|---|---|
+| `recruitment` | candidates, interviews, job descs, hiring partners, recruitment tooling/skill |
+| `team` | internal 1:1s / colleague coordination not about managing-the-org |
+| `management` | leveling, comp grids, playbooks, standup/meeting scope, people-management decisions |
+| `client` | anything client-facing (Forvia, Crédit Agricole, CNP, client onboarding) |
+| `product` | product/PM feature specs, product feedback triage, roadmap decisions |
+| `engineering` | bugs, debugging, repo/infra-in-code, technical investigations |
+| `ops` | accounts, licences, equipment, contracts, invoices, internal logistics |
+
+If a Commitment genuinely spans two, pick the one matching the **primary
+action** Arjun must take. `linear_arj.py themes` prints the valid list; the
+helper rejects any theme outside it. The Theme group + sub-labels already exist
+in the ARJ workspace — do NOT recreate them each Run.
+
 ### Step 6 — Recap + stamp
 
 Compose the **Recap** (CONTEXT.md → Recap shape) and make it this job's final
 message so the cron delivers it to Telegram:
-- Urgent + High listed by title (`ARJ-NN · commitment`); Medium/Low counted with
+- Urgent + High listed by title with their theme tag
+  (`ARJ-NN · [theme] commitment`); Medium/Low counted with
   a deep link to the filtered ARJ view.
 - Footer: `N new since last run · N nudged · N auto-closed · N open total`.
 - **Empty Run** → one-line heartbeat ("✅ All clear — N open, none urgent"),
