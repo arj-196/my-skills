@@ -208,9 +208,12 @@ in the ARJ workspace — do NOT recreate them each Run.
 
 Compose the **Recap** (CONTEXT.md → Recap shape) and make it this job's final
 message so the cron delivers it to Telegram:
-- Urgent + High listed by title with their theme tag
-  (`ARJ-NN · [theme] commitment`); Medium/Low counted with
-  a deep link to the filtered ARJ view.
+- Urgent + High listed one per line, with the ticket id as a **Markdown link to
+  the ticket URL** plus the theme tag:
+  `[ARJ-NN](<ticket url>) · [theme] commitment`. Use the `url` field returned by
+  `linear_arj.py list` (and by `create` for tickets made this Run) — never
+  hand-build the URL. Telegram renders `[text](url)` as a tappable link.
+- Medium/Low counted, not enumerated, with a deep link to the filtered ARJ view.
 - Footer: `N new since last run · N nudged · N auto-closed · N open total`.
 - **Empty Run** → one-line heartbeat ("✅ All clear — N open, none urgent"),
   never silence.

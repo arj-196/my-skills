@@ -57,8 +57,9 @@ _Avoid_: digest, summary, report
 ### Recap shape
 
 - Only **Urgent + High** Tickets are listed by title, one line each:
-  `ARJ-NN · [theme] one-line commitment`. No source detail or rationale in the
-  Recap — those live in the Ticket.
+  `[ARJ-NN](<ticket url>) · [theme] one-line commitment` — the ticket id is a
+  Markdown link to the ticket's Linear URL (tappable in Telegram). No source
+  detail or rationale in the Recap — those live in the Ticket.
 - **Medium + Low** are counted, not enumerated, with a deep link to the full
   filtered Linear view.
 - Footer shows what changed this Run: `N new since last run · N nudged · N open total`.
@@ -72,11 +73,11 @@ Example:
 🎯 Focus — Wed 8am
 
 🔴 Urgent (2)
-• ARJ-42 · [recruitment] Reply to Bérengère re: Marcel Tessier next steps
-• ARJ-45 · [ops] Send Q3 budget approval — finance blocked on you
+• [ARJ-42](https://linear.app/arjun-chatterjee/issue/ARJ-42) · [recruitment] Reply to Bérengère re: Marcel Tessier next steps
+• [ARJ-45](https://linear.app/arjun-chatterjee/issue/ARJ-45) · [ops] Send Q3 budget approval — finance blocked on you
 
 🟠 High (3)
-• ARJ-43 · [product] Review Vincent's intent-extraction plan
+• [ARJ-43](https://linear.app/arjun-chatterjee/issue/ARJ-43) · [product] Review Vincent's intent-extraction plan
 • ...
 
 +7 Medium/Low → <linear filtered view link>

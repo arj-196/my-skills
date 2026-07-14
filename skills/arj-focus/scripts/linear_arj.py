@@ -102,7 +102,7 @@ def _theme_id(theme):
 def cmd_list():
     q = """
     query($t:String!){ team(id:$t){ issues(first:250){ nodes {
-      id identifier title priority
+      id identifier title priority url
       state { name type }
       labels { nodes { name parent { name } } }
       description
