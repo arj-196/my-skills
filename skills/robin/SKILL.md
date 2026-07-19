@@ -37,22 +37,42 @@ architecture is the way it is.
 Robin runs inside Hermes, which does NOT expose Notion or Slack tools directly.
 Notion access goes through headless Claude Code, exactly as the sibling
 `arj-focus` skill does. The Notion connector is a single agentic tool driven
-with a natural-language instruction:
+with a natural-language instruction. The Notion connector exposes SEVERAL
+tools, each with a `notion-<verb>` suffix — grant the exact ones the task needs
+(a bare `mcp__claude_ai_Notion__notion` is NOT a valid tool name and will be
+refused). The set Robin uses:
 
 ```
 claude -p "<what to do on Notion, in plain language>" \
   --permission-mode acceptEdits \
-  --allowedTools "mcp__claude_ai_Notion__notion"
+  --allowedTools \
+    "mcp__claude_ai_Notion__notion-fetch" \
+    "mcp__claude_ai_Notion__notion-search" \
+    "mcp__claude_ai_Notion__notion-create-pages" \
+    "mcp__claude_ai_Notion__notion-update-page" \
+    "mcp__claude_ai_Notion__notion-create-database" \
+    "mcp__claude_ai_Notion__notion-query-data-sources"
 ```
 
-- **Reading a page's answers / body**: instruct it to fetch page `<id>` and
-  return the current text of the "Robin needs input" block verbatim, plus the
-  state of the "Done — Robin, proceed" checkbox (checked/unchecked).
-- **Writing questions / plan / reports**: instruct it to append/replace the
-  relevant block on page `<id>` with the exact markdown you provide.
-- **Permission gate**: headless `claude -p` silently refuses the tool unless
-  `mcp__claude_ai_Notion__notion` is in `--allowedTools`. If a Notion call comes
-  back empty, suspect a missing grant before concluding "no change".
+- **Reading a page's answers / body** (`notion-fetch`): instruct it to fetch
+  page `<id>` and return the current text of the "Robin needs input" block
+  verbatim, plus the state of the "Done — Robin, proceed" checkbox
+  (checked/unchecked).
+- **Writing questions / plan / reports** (`notion-update-page`): instruct it to
+  append/replace the relevant block on page `<id>` with the exact markdown you
+  provide. New task pages use `notion-create-pages`; first-run DB creation uses
+  `notion-create-database`.
+- **Permission gate**: headless `claude -p` silently refuses a tool unless its
+  EXACT name (with the `notion-<verb>` suffix) is in `--allowedTools`. If a
+  Notion call comes back empty or "permission … wasn't granted", suspect a
+  missing/misspelled grant before concluding "no change". Discover the current
+  names with:
+  `grep -rhoE "mcp__claude_ai_Notion__[A-Za-z0-9_-]+" ~/.claude/projects | sort -u`.
+- **Bridge auth**: the connector needs the `claude` CLI logged in (macOS stores
+  the OAuth token in the Keychain item `Claude Code-credentials`, NOT in
+  `~/.claude/.credentials.json`). If `claude -p` says "Not logged in", run
+  `claude` interactively once and `/login`. The cheap REST poll in `precheck.py`
+  uses the separate `NOTION_API_KEY` and is unaffected by CLI login state.
 
 **Telegram** is reached the normal Hermes way: the cron job's `deliver` targets
 `telegram:8628776494`, and Robin's final message each tick becomes the
@@ -143,7 +163,6 @@ result, send ONE Telegram ping (see Notification rules).
       "title": "...", "app": "Roadmap", "detail": ["..."],
       "source_feedbacks": ["F-1", "F-3"],
       "stage": "grilling", "complexity": "simple|complex|very-complex",
-      "rounds_used": 1, "rounds_budget": 3,
       "notion_page_id": "...",
       "awaiting_answer": true,
       "notion_last_edit": "2026-07-12T14:00:00.000Z",
@@ -185,9 +204,8 @@ tasks from it:
    starts with the grouped feedback text (quote each `F-n` verbatim) + your
    one-line interpretation of the work.
 5. Classify complexity — *simple*: localized, obvious; *complex*: multi-file or
-   unclear approach; *very-complex*: architectural. Sets `rounds_budget`:
-   3 / 5 / 10. Robin self-modification tasks are ALWAYS at least complex and
-   NEVER auto-merge.
+   unclear approach; *very-complex*: architectural. Robin self-modification
+   tasks are ALWAYS at least complex and NEVER auto-merge.
 6. Decide: enough info to plan? Enough = you can state the change, the
    acceptance criteria, and where in the code it lands, with no more-than-one
    reasonable-answer guesses. If yes → `planning`. If no → `grilling`, post
@@ -233,10 +251,12 @@ ping Telegram once:
    - **Not satisfied** (answers opened new unknowns, or a blocking one is still
      blank and had no safe recommendation) → post a fresh `❓ Robin needs input`
      block with only the remaining/follow-up questions, UNCHECK the Done box,
-     keep `awaiting_answer: true`, decrement the round budget, re-ping Telegram.
-   Grilling rounds are budget-capped (`rounds_budget`); when the budget is
-   exhausted, treat unanswered questions as explicit **Assumptions** and move to
-   `planning`. Review has no round cap.
+     keep `awaiting_answer: true`, re-ping Telegram.
+   There is no cap on grilling rounds — ask as many as you genuinely need. The
+   cost that matters is Arjun's time, not the round count, so ALWAYS batch every
+   question you can foresee into a SINGLE block and ask them together; never
+   dribble out questions one at a time when you could have asked them at once.
+   Only open a follow-up round for unknowns that his answers actually surfaced.
 
 Robin decides *satisfied*; Arjun decides *done*. The checkbox is the
 deterministic "I'm finished answering" signal so Robin never guesses whether a
@@ -244,7 +264,9 @@ half-typed answer is final.
 
 Before asking anything, explore the target repo (`CONTEXT.md`, `docs/adr/`,
 code) — never ask what the codebase can answer. Prioritize the highest-ambiguity
-questions; most tasks should need one round.
+questions and ask everything you need in one well-organized batch, since Arjun
+has little time to iterate; front-load thoroughness rather than dripping
+questions across many rounds.
 
 ### Planning
 
