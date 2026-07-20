@@ -227,6 +227,26 @@ update the stamp (so the next Run re-covers the window) and say so in the Recap.
 - **Permission gate**: headless `claude -p` silently refuses MCP calls unless the
   exact tool names are in `--allowedTools`. If a source returns nothing,
   suspect a missing/renamed tool grant before concluding "no Signals".
+- **"Not logged in" / missing connectors in headless `claude -p`** (seen when a
+  token rotation lands mid-cron): the CLI reads the macOS Keychain item
+  `Claude Code-credentials` first. Two distinct failure modes:
+  1. Keychain tokens blank/`expiresAt:0` → `Not logged in · Please run /login`.
+  2. Keychain/`~/.claude/.credentials.json` has valid tokens but is **missing
+     the `scopes`/`subscriptionType` fields** → auth may work via
+     `CLAUDE_CODE_OAUTH_TOKEN` env but the claude.ai remote connectors (Slack,
+     Microsoft 365) do NOT load ("No Slack or Outlook tools are available").
+     The `user:mcp_servers` scope is what enables connectors.
+  Fix: reconstruct a COMPLETE credential and write it to BOTH the file and the
+  Keychain. Merge the fresh `accessToken`/`refreshToken`/`expiresAt` with the
+  full `scopes`+`subscriptionType`+`rateLimitTier` (recover the scope list from
+  the prior Keychain value via `security find-generic-password -s "Claude
+  Code-credentials" -w`, scopes are `user:file_upload user:inference
+  user:mcp_servers user:profile user:sessions:claude_code`). Write compact
+  single-line JSON (trailing newlines break Keychain reads):
+  `security add-generic-password -U -s "Claude Code-credentials" -a "$USER" -w "$COMPACT_JSON"`.
+  Then a plain `claude -p "pong"` (no env override) should return normally and
+  connectors load. Verify BOTH auth and connector availability before concluding
+  "no Signals".
 - **Slack has no true mentions endpoint** — for channel @-mentions use the
   `<@U0B71TMF690>` search query (Arjun's member ID), NOT `to:me` (which only
   matches DMs and returns zero for channel mentions). Paginate past 20 results.
