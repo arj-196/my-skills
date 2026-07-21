@@ -107,16 +107,16 @@ python3 ~/.agents/skills/robin/scripts/precheck.py
 The gate also takes a **single-tick lock** so two ticks never run at once
 (scheduled + manual). Branch on `verdict`:
 
-- **`NOOP`** — nothing changed, nothing in flight. Reply with the single token
-  `[SILENT]` and end the turn. This is the cron silence sentinel: Hermes
-  suppresses delivery so Arjun is NOT pinged, while the run is still saved for
-  audit. Do NOT reply the literal word "NOOP" or any prose — that would deliver
-  a useless notification. The gate has already released its own lock on NOOP;
-  do nothing else. No Notion, no Telegram, no exploration.
+- **`NOOP`** — nothing changed, nothing in flight. Your ENTIRE final response
+  must be exactly the bare token `[SILENT]` and NOTHING else — no "Verdict is
+  NOOP", no explanation before or after it. Hermes only suppresses delivery
+  cleanly when the response is the bare sentinel; surrounding prose is sloppy and
+  risks being delivered. The gate has already released its own lock on NOOP; do
+  nothing else. No Notion, no Telegram, no exploration.
 - **`BUSY`** — another tick already holds the lock (a previous run is still
-  working). Reply `[SILENT]` and end the turn immediately. Do NOT run
-  `precheck.py release` — this run never held the lock and must not free the
-  other run's lock. No work of any kind.
+  working). Your ENTIRE final response must be exactly `[SILENT]` and nothing
+  else. Do NOT run `precheck.py release` — this run never held the lock and must
+  not free the other run's lock. No work of any kind.
 - **`WORK`** — the JSON payload tells you exactly what changed (fields below).
   This run holds the lock. You MUST release it as the FINAL action of the turn,
   on every path including errors:
