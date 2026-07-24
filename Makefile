@@ -11,7 +11,7 @@ CLAUDE_SKILLS := $(HOME)/.claude/skills
 # Relative link target so the symlinks stay portable if $HOME moves.
 REL_PREFIX    := ../../.agents/skills
 
-.PHONY: sync sync-check
+.PHONY: sync sync-check unify-grill
 
 ## sync: create a symlink in ~/.claude/skills for every skill in .agents/skills
 sync:
@@ -35,6 +35,10 @@ sync:
 			printf '  link  %s\n' "$$name"; \
 		fi; \
 	done
+
+## unify-grill: regenerate the self-contained /grill skill from its source skills
+unify-grill:
+	@"$(AGENTS_DIR)/unify-grill.sh"
 
 ## sync-check: report which skills are missing symlinks without changing anything
 sync-check:
