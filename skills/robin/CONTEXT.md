@@ -59,9 +59,11 @@ least complex.
 page per Task holding grouped feedback, the live Q&A block, the Q&A transcript,
 versioned plan, and implementation report.
 
-**Bridge** — how Robin (inside Hermes) reaches Notion for read/write: headless
-`claude -p --allowedTools "mcp__claude_ai_Notion__notion"`. Telegram is reached
-via the Hermes cron `deliver` target. See SKILL.md → Integration bridge.
+**Bridge** — how Robin (inside Hermes) reaches Notion for read/write: the direct
+Notion REST API via `scripts/notion_api.py`, authenticated with the
+`NOTION_API_KEY` workspace token (auto-refreshing on 401/403). No Claude Code
+CLI / MCP connector is involved. Telegram is reached via the Hermes cron
+`deliver` target. See SKILL.md → Integration bridge.
 
 **Self-modification** — a Task against Robin's own repo/skill. Same pipeline but
 with mandatory plan AND diff approval; never auto-merged.

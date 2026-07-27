@@ -41,8 +41,10 @@ same bridge the sibling `arj-focus` skill uses.
   Unchanged pages are never read, so idle waiting costs no model tokens.
 - **State** drops from three surfaces to two (ADR 0001 amended): state.json +
   Notion. Telegram is capture + notify only and holds no state.
-- **Notion read/write** goes through the `mcp__claude_ai_Notion__notion` bridge;
-  the cheap poll uses the REST API directly. Two paths, two jobs.
+- **Notion read/write** originally went through the `mcp__claude_ai_Notion__notion`
+  bridge; the cheap poll used the REST API directly. Two paths, two jobs.
+  *(Superseded by ADR 0004: read/write now also uses the direct REST API via
+  `scripts/notion_api.py`; the Claude CLI bridge is retired.)*
 
 ## Consequences
 

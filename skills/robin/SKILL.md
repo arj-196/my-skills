@@ -10,9 +10,10 @@ feedback into tasks, and ALL human negotiation — questions, answers, plan
 approval — happens on each task's **Notion page**. Telegram is capture +
 notification only; Notion is the conversation.
 
-This skill runs under **Hermes** and is itself invoked *by* Hermes via the
-Claude Code MCP. There is no Obsidian vault and no Slack — those belonged to the
-old Claude-routines version and have been removed.
+This skill runs under **Hermes**. There is no Obsidian vault and no Slack —
+those belonged to the old Claude-routines version and have been removed. Notion
+is reached through the direct Notion REST API (`scripts/notion_api.py`), NOT via
+the Claude Code CLI — see the Integration bridge below.
 
 ## Fixed facts
 
@@ -27,6 +28,7 @@ old Claude-routines version and have been removed.
 | Pre-check gate | `python3 ~/.agents/skills/robin/scripts/precheck.py` |
 | Single-tick lock | `~/.hermes/robin/tick.lock` (O_EXCL; gate takes it, WORK ticks release via `precheck.py release`) |
 | Capture helper | `python3 ~/.agents/skills/robin/scripts/add_feedback.py "<text>"` |
+| Notion REST client | `python3 ~/.agents/skills/robin/scripts/notion_api.py <cmd>` (read/write, auto-refresh) |
 | Notion cheap-poll key | `NOTION_API_KEY` in `~/.hermes/.env` (chmod 600, never committed) |
 
 Read `CONTEXT.md` (same directory) for the glossary and `docs/adr/` for why the
@@ -34,45 +36,63 @@ architecture is the way it is.
 
 ## Integration bridge (how Robin reaches Notion & sends Telegram)
 
-Robin runs inside Hermes, which does NOT expose Notion or Slack tools directly.
-Notion access goes through headless Claude Code, exactly as the sibling
-`arj-focus` skill does. The Notion connector is a single agentic tool driven
-with a natural-language instruction. The Notion connector exposes SEVERAL
-tools, each with a `notion-<verb>` suffix — grant the exact ones the task needs
-(a bare `mcp__claude_ai_Notion__notion` is NOT a valid tool name and will be
-refused). The set Robin uses:
+Robin runs inside Hermes and reaches Notion through the **direct Notion REST
+API**, driven by `scripts/notion_api.py`. There is NO Claude Code CLI, NO MCP
+connector, and NO interactive OAuth login in this path anymore — the old
+`claude -p --allowedTools mcp__claude_ai_Notion__*` bridge has been retired
+because it depended on a login that kept expiring. All Notion access — the
+cheap change-poll, page reads, and every write — now uses the single
+`NOTION_API_KEY` workspace token in `~/.hermes/.env`, with automatic OAuth
+refresh on 401/403 via `notion_token.py`.
+
+Call it either as a Python import (inside `execute_code`) or as a CLI via the
+terminal tool. Both return JSON (or plain text for `render`).
+
+**Reading a page's Q&A / body** — get the "Robin needs input" block text
+verbatim AND the Done checkbox state in one call:
 
 ```
-claude -p "<what to do on Notion, in plain language>" \
-  --permission-mode acceptEdits \
-  --allowedTools \
-    "mcp__claude_ai_Notion__notion-fetch" \
-    "mcp__claude_ai_Notion__notion-search" \
-    "mcp__claude_ai_Notion__notion-create-pages" \
-    "mcp__claude_ai_Notion__notion-update-page" \
-    "mcp__claude_ai_Notion__notion-create-database" \
-    "mcp__claude_ai_Notion__notion-query-data-sources"
+python3 ~/.agents/skills/robin/scripts/notion_api.py render <page_id>
 ```
 
-- **Reading a page's answers / body** (`notion-fetch`): instruct it to fetch
-  page `<id>` and return the current text of the "Robin needs input" block
-  verbatim, plus the state of the "Done — Robin, proceed" checkbox
-  (checked/unchecked).
-- **Writing questions / plan / reports** (`notion-update-page`): instruct it to
-  append/replace the relevant block on page `<id>` with the exact markdown you
-  provide. New task pages use `notion-create-pages`; first-run DB creation uses
-  `notion-create-database`.
-- **Permission gate**: headless `claude -p` silently refuses a tool unless its
-  EXACT name (with the `notion-<verb>` suffix) is in `--allowedTools`. If a
-  Notion call comes back empty or "permission … wasn't granted", suspect a
-  missing/misspelled grant before concluding "no change". Discover the current
-  names with:
-  `grep -rhoE "mcp__claude_ai_Notion__[A-Za-z0-9_-]+" ~/.claude/projects | sort -u`.
-- **Bridge auth**: the connector needs the `claude` CLI logged in (macOS stores
-  the OAuth token in the Keychain item `Claude Code-credentials`, NOT in
-  `~/.claude/.credentials.json`). If `claude -p` says "Not logged in", run
-  `claude` interactively once and `/login`. The cheap REST poll in `precheck.py`
-  uses the separate `NOTION_API_KEY` and is unaffected by CLI login state.
+Each output line is `<block_id>\t<type>\t<checkbox>\t<text>`, where `<checkbox>`
+is `[x]`/`[ ]` for `to_do` blocks (the Done signal) or `-` otherwise, and nested
+blocks are indented. This is the direct-API replacement for the old bridge
+instruction "return the block text verbatim plus the Done checkbox state". Use
+`fetch`/`fetch-deep`/`page` for raw block or page JSON when you need ids,
+properties, or `last_edited_time`.
+
+**Writing questions / plan / reports** — append or edit blocks:
+
+```
+# append blocks (JSON array on stdin)
+echo '<blocks-json>' | python3 .../notion_api.py append <page_id>
+# replace/update a single block (e.g. re-tick or rewrite the Q&A block)
+echo '<block-body-json>' | python3 .../notion_api.py update-block <block_id>
+# remove a superseded block
+python3 .../notion_api.py delete-block <block_id>
+```
+
+New task pages: `create-page` (`{parent, properties, children?}` on stdin).
+First-run board creation: `create-database`
+(`{parent_page_id, title, properties}` on stdin). Querying the board:
+`query-ds <data_source_id>`. Generic escape hatch for any endpoint:
+`call <METHOD> <PATH>` (JSON body on stdin).
+
+Notion API notes:
+- **`to_do` checkbox** = Arjun's Done signal. Read it via the `render` checkbox
+  column, or from raw block JSON at `.to_do.checked`. To un-tick the Done box
+  when opening a new round, `update-block` it with
+  `{"to_do":{"checked":false}}`.
+- **Replacing the Q&A block wholesale each round**: append the new
+  `❓ Robin needs input` block, then `delete-block` (archive) the previous one;
+  keep prior rounds under a `Superseded` toggle as before.
+- **Auth failures**: `notion_api.py` refreshes the token once per process on
+  401/403 and retries. If it still returns `{"error": …}` with an auth message,
+  the OAuth integration itself needs re-authorizing (see OAuth token lifecycle
+  under the Notion section) — it is NOT a "no change" result.
+- **`NOTION_API_KEY` missing** → every call errors immediately; the gate already
+  degrades safe (wakes every awaiting task and warns).
 
 **Telegram** is reached the normal Hermes way: the cron job's `deliver` targets
 `telegram:8628776494`, and Robin's final message each tick becomes the
@@ -339,8 +359,9 @@ Two Notion access paths, used for different jobs:
 - **Cheap poll (no tokens)** — `precheck.py` calls the Notion REST API directly
   with `NOTION_API_KEY` to read only `last_edited_time`. This is the change
   detector; it never reads page bodies.
-- **Agentic read/write** — the `claude -p … mcp__claude_ai_Notion__notion`
-  bridge, used only when the gate says a page changed or Robin must write.
+- **Agentic read/write** — `scripts/notion_api.py` (direct Notion REST API),
+  used only when the gate says a page changed or Robin must write. Same
+  `NOTION_API_KEY` token as the poll, same auto-refresh path.
 
 ### OAuth token lifecycle (auto-refresh)
 
