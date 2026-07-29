@@ -22,7 +22,8 @@ state store. The definitions there are binding — do not silently change them.
 | Arjun / viewer | Arj — arjun@mendo.cloud (Linear user id `8576cf51-89d0-40e3-aee7-f82bcf3be6f5`; new Tickets auto-assigned to him so they show in "Assigned to me") |
 | Telegram target | chat id `8628776494` (deliver via the cron job's `deliver='telegram:8628776494'`) |
 | Last-run stamp | `~/.hermes/arj-focus/last_run.txt` (ISO timestamp; the ONLY local state) |
-| Integration — Slack/Outlook | headless `claude -p` (MCP connected there) |
+| Integration — Slack | Hermes **`slack` MCP server** (korotovsky `slack-mcp-server`, `xoxp` user token). Tools: `slack:conversations_search_messages`, `slack:conversations_history`, `slack:conversations_replies`, `slack:users_search`, `slack:conversations_add_message`. NOT the Claude CLI. |
+| Integration — Outlook | headless `claude -p` (Microsoft 365 MCP connected there) |
 | Slack member ID | `U0B71TMF690` (handle `arjun`, display "Arj") — used to search channel @-mentions via `<@U0B71TMF690>` |
 | Integration — Linear ARJ | `scripts/linear_arj.py` via GraphQL + `LINEAR_ARJ_API_KEY` (Claude's Linear MCP is scoped to Mendo and CANNOT reach ARJ — see ADR 0002) |
 | API key | `LINEAR_ARJ_API_KEY` in `~/.hermes/.env` (chmod 600, never committed) |
@@ -47,42 +48,52 @@ between Runs harmless.
 
 Do NOT update the stamp yet — only after a successful Run (Step 6).
 
-### Step 2 — Pull Signals (Slack + Outlook via one headless call)
+### Step 2 — Pull Signals (Slack via Hermes MCP + Outlook via `claude -p`)
 
-Invoke Claude Code headlessly to gather Signals from Slack and Outlook in the
-narrow v1 scope (CONTEXT.md → Source scope). **Linear signals are NOT gathered
-here** — ARJ is read directly in Step 3 via the helper. Grant the exact tools:
+Slack and Outlook are gathered through **two different paths** now:
+
+- **Slack** — call the Hermes `slack` MCP tools DIRECTLY in this session (no
+  `claude -p`). The tools are already loaded; use these exact names:
+  - `slack:conversations_search_messages` — the search endpoint. Query syntax is
+    standard Slack search: `from:<@U0B71TMF690>` for outgoing, `<@U0B71TMF690>`
+    for channel @-mentions, `on:YYYY-MM-DD` / `after:` / `before:` for the
+    window. Paginate via the returned cursor past the first page.
+  - `slack:conversations_history` — read a channel/DM by `channel_id`.
+  - `slack:conversations_replies` — read a thread by `channel_id` + `thread_ts`.
+  - `slack:users_search` — resolve a user id ↔ name when needed.
+- **Outlook** — still gathered via a headless `claude -p` call (Microsoft 365
+  MCP lives on the Claude CLI). Grant exactly:
 
 ```
-claude -p "<signal-gathering prompt>" \
+claude -p "<outlook signal-gathering prompt>" \
   --permission-mode acceptEdits \
   --allowedTools \
-    "mcp__claude_ai_Slack__slack_search_public_and_private" \
-    "mcp__claude_ai_Slack__slack_search_public" \
-    "mcp__claude_ai_Slack__slack_search_channels" \
-    "mcp__claude_ai_Slack__slack_read_channel" \
-    "mcp__claude_ai_Slack__slack_read_thread" \
-    "mcp__claude_ai_Slack__slack_read_user_profile" \
     "mcp__claude_ai_Microsoft_365__outlook_email_search" \
     "mcp__claude_ai_Microsoft_365__read_resource"
 ```
 
-The prompt must ask for, within the window:
-- **Slack (incoming)**: DMs + group DMs **+ @-mentions in channels Arjun follows**.
-  Search channel mentions with the query `<@U0B71TMF690>` (his member ID) — this
-  is the ONLY reliable mentions query; `to:me` matches DMs, not `@`-mentions, and
-  returns nothing for channel mentions (verified). Paginate past the first 20
-  results if a `next_cursor` is returned. Exclude pure bot/tool relay messages.
-  For each: sender, channel/DM, permalink or message ts, ISO time, one-line gist.
-- **Slack (outgoing — messages ARJUN sent others)**: search `from:<@U0B71TMF690>`
-  across DMs and channels in the window. For each thread Arjun sent into, read
-  the thread (`slack_read_thread`) and judge whether the conversation is left
-  **pending on the OTHER person** — i.e. Arjun asked a question / made a request /
-  is waiting on a reply or an action, and the counterpart has NOT yet responded
-  or delivered. This is a Commitment for Arjun to **chase/follow-up**, not to
-  reply. Report: counterpart, channel/DM, Arjun's message permalink+ts, ISO time,
-  the ask, and whether a reply exists after it. Skip threads that are clearly
-  resolved (counterpart answered, or it was social/FYI with no open ask).
+**Linear signals are NOT gathered here** — ARJ is read directly in Step 3 via
+the helper.
+
+Gather, within the window:
+
+- **Slack (incoming)**: DMs + group DMs **+ @-mentions in channels Arjun
+  follows**. Search channel mentions with the query `<@U0B71TMF690>` (his member
+  ID) — this is the ONLY reliable mentions query; `to:me` matches DMs, not
+  `@`-mentions, and returns nothing for channel mentions (verified). Paginate
+  past the first page if a cursor is returned. Exclude pure bot/tool relay
+  messages. For each: sender, channel/DM, permalink or message ts, ISO time,
+  one-line gist.
+- **Slack (outgoing — messages ARJUN sent others)**: search
+  `from:<@U0B71TMF690>` across DMs and channels in the window. For each thread
+  Arjun sent into, read the thread (`slack:conversations_replies`) and judge
+  whether the conversation is left **pending on the OTHER person** — i.e. Arjun
+  asked a question / made a request / is waiting on a reply or an action, and the
+  counterpart has NOT yet responded or delivered. This is a Commitment for Arjun
+  to **chase/follow-up**, not to reply. Report: counterpart, channel/DM, Arjun's
+  message permalink+ts, ISO time, the ask, and whether a reply exists after it.
+  Skip threads that are clearly resolved (counterpart answered, or it was
+  social/FYI with no open ask).
 - **Outlook**: mail addressed directly to Arjun (to/cc) within the window —
   **read AND unread** (not just unread). Exclude newsletters/bulk. For each:
   sender, message-id, **conversationId/thread-id**, ISO time, subject + gist,
@@ -94,7 +105,7 @@ The prompt must ask for, within the window:
   is only partially handled). Report the reply's ISO time, one-line gist, and a
   `pending: yes/no` flag with what remains if yes.
 
-Require structured output (one Signal per line with its **stable ID**) so the
+Produce structured output (one Signal per line with its **stable ID**) so the
 IDs can be used as Source anchors.
 
 ### Step 3 — Fetch current Tickets (ARJ read + Linear signals)
@@ -224,18 +235,27 @@ update the stamp (so the next Run re-covers the window) and say so in the Recap.
 
 ## Pitfalls
 
-- **Permission gate**: headless `claude -p` silently refuses MCP calls unless the
-  exact tool names are in `--allowedTools`. If a source returns nothing,
-  suspect a missing/renamed tool grant before concluding "no Signals".
-- **"Not logged in" / missing connectors in headless `claude -p`** (seen when a
-  token rotation lands mid-cron): the CLI reads the macOS Keychain item
-  `Claude Code-credentials` first. Two distinct failure modes:
+- **Slack MCP boot flag**: the Hermes `slack` MCP server (`slack-mcp-server`)
+  MUST run with `-no-cache`. Without it the server fatally crashes on startup
+  trying to cache the users collection (the `xoxp` token lacks `users:read`
+  scope → `missing_scope`). This is already set in `config.yaml`; if Slack tools
+  vanish, check that flag first.
+- **Slack tool names are the MCP server's, not the old connector's**: search is
+  `slack:conversations_search_messages` (NOT `slack_search_public_and_private`),
+  read thread is `slack:conversations_replies`, read channel is
+  `slack:conversations_history`. If a Slack call errors "Unknown tool", the
+  `slack` MCP server is disabled in config or the gateway wasn't restarted after
+  enabling it.
+- **`claude -p` now only gathers OUTLOOK** — the "Not logged in" / missing
+  connectors failure modes below apply ONLY to the Outlook pull. A broken
+  `claude` login no longer blocks Slack signals. If headless `claude -p` refuses
+  Microsoft 365 tools:
   1. Keychain tokens blank/`expiresAt:0` → `Not logged in · Please run /login`.
   2. Keychain/`~/.claude/.credentials.json` has valid tokens but is **missing
      the `scopes`/`subscriptionType` fields** → auth may work via
-     `CLAUDE_CODE_OAUTH_TOKEN` env but the claude.ai remote connectors (Slack,
-     Microsoft 365) do NOT load ("No Slack or Outlook tools are available").
-     The `user:mcp_servers` scope is what enables connectors.
+     `CLAUDE_CODE_OAUTH_TOKEN` env but the claude.ai remote connectors
+     (Microsoft 365) do NOT load. The `user:mcp_servers` scope enables
+     connectors.
   Fix: reconstruct a COMPLETE credential and write it to BOTH the file and the
   Keychain. Merge the fresh `accessToken`/`refreshToken`/`expiresAt` with the
   full `scopes`+`subscriptionType`+`rateLimitTier` (recover the scope list from
@@ -244,13 +264,11 @@ update the stamp (so the next Run re-covers the window) and say so in the Recap.
   user:mcp_servers user:profile user:sessions:claude_code`). Write compact
   single-line JSON (trailing newlines break Keychain reads):
   `security add-generic-password -U -s "Claude Code-credentials" -a "$USER" -w "$COMPACT_JSON"`.
-  Then a plain `claude -p "pong"` (no env override) should return normally and
-  connectors load. Verify BOTH auth and connector availability before concluding
-  "no Signals".
+  Then a plain `claude -p "pong"` should return normally and connectors load.
 - **Slack has no true mentions endpoint** — for channel @-mentions use the
-  `<@U0B71TMF690>` search query (Arjun's member ID), NOT `to:me` (which only
-  matches DMs and returns zero for channel mentions). Paginate past 20 results.
-  Arjun feeds back real misses; do not widen scope further preemptively.
+  `<@U0B71TMF690>` search query (Arjun's member ID) via
+  `slack:conversations_search_messages`, NOT `to:me` (which only matches DMs and
+  returns zero for channel mentions). Paginate past the first page.
 - **Never re-ticket a closed thread** — always check anchors across ALL Ticket
   states, not just open ones.
 - **Bots are never Commitments** — Linear/Revo/Notion Slack relays get dropped

@@ -13,6 +13,11 @@ that way.
 which calls the Linear GraphQL API directly using `LINEAR_ARJ_API_KEY`. The key
 is stored in `~/.hermes/.env` (chmod 600, outside the git repo).
 
+> **Update (2026-07-28):** Slack no longer uses `claude -p`. It is now gathered
+> via the Hermes `slack` MCP server (`slack-mcp-server`, `xoxp` user token)
+> called directly in-session — see SKILL.md → Step 2 and ADR 0003. Only Outlook
+> still uses `claude -p`.
+
 **Why.** The personal API key is the only credential that can see the ARJ
 workspace. Claude's Linear MCP, being org-scoped to Mendo, is structurally
 incapable of it — no amount of tool-granting fixes that. Splitting the
