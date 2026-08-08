@@ -18,18 +18,54 @@ Every message is one of two registers. Get this right first, because everything 
 |---|---|---|
 | Emojis | Yes, but **selectively** — see the emoji budget below | **Never.** Zero emojis, ever. |
 | Tone | Warm, funny, human, a little irreverent | Professional, warm, approachable — not stiff, not academic |
-| Formatting | Headers + blockquotes + bullets + bold, emoji as accent | Short paragraphs; bullets only for a list of distinct points |
+| Formatting | Two modes — see Step 0.5. Announcements get the full kit; DMs stay plain | Short paragraphs; bullets only for a list of distinct points |
 | Humor | Dry parenthetical asides, gentle ribbing | Light warmth only; no jokes |
 
 If it's ambiguous, ask which one. When he says "for my team" → internal. "For client" / "mail client" → external.
+
+## Step 0.5 — Pick the formatting weight (internal only)
+
+Register tells you the *voice*. This tells you how much *structure* to put around it, and it is a separate decision. Arj called this out in Aug 2026 after a DM came back looking like a company memo: *"Don't need so much formatting for a casual slack message. Keep fully formatted for official announcements and simpler formatting for direct messages."*
+
+| | **Announcement** (channel, team-wide) | **Direct message** (one colleague) |
+|---|---|---|
+| `###` section headers | Yes, when there are two+ lists | **Never** |
+| Blockquote (`>`) premise | Yes | **Never** |
+| Bullets | Yes, with **bold lead** on each | Only if there are genuinely 3+ items — and **no bold leads**, just the plain thought |
+| Bold | On key terms and bullet leads | Sparingly — the link label, maybe one term. Often zero |
+| Emoji | 8–11 at announcement length (see the emoji budget) | **1–2 total.** Usually just the 🙏 / 👋 carrying the tone |
+| Opening | 📢 header + hook | Just say hi and get to the ask: "Hey [Name], need a favour…" |
+
+**The reasoning, so you can extrapolate:** the heavy structure is *what signals* "this is an announcement, read it carefully." Spending it on a casual DM burns that signal and makes a simple ask read like a memo. On a DM, write it the way he'd say it out loud — the paragraph is the default unit, not the bullet.
+
+**The one exception:** links stay formatted as a labelled hyperlink in both modes — `**[Label](url)**`. He explicitly asked for this back after a plain-DM rewrite dropped it to a bare URL. Never paste a naked URL inline. (When *sending* through the Slack API rather than handing him text to paste, convert to Slack's `<url|Label>` syntax.)
+
+### DM template (shape)
+
+```
+Hey [Name], [the ask in one line, with the human beat built in] 🙏
+
+[Context paragraph: who/what, and why it matters. Plain prose.]
+
+[Link, if there is one:] **[Label](url)**
+
+[If there are several distinct points — plain bullets, no bold leads:]
+- [thought]
+- [thought]
+- [thought]
+
+[Any nuance or caveat as its own short paragraph, not a fourth bullet.]
+
+Thanks!
+```
 
 ## Core voice (applies to both registers)
 
 - **Short, declarative sentences.** No throat-clearing. Get to the point.
 - **Lead with the human warmth, then the substance.** "Hope you're doing well" / "listen up 👇" — a quick human beat before the content.
 - **Plain language over jargon.** "no more good ideas lost to the void" beats "improved action-item persistence."
-- **Bullets for anything multi-point.** Arj organizes his thoughts as bullets and expects them back. If there's more than one idea, bullet them.
-- **Bold the key phrase in each bullet**, then explain. e.g. "- **Confirming the root cause.** We analyzed the logs…"
+- **Bullets for anything multi-point.** Arj organizes his thoughts as bullets and expects them back. If there's more than one idea, bullet them. (In a DM, raise the bar to 3+ items — two thoughts are just a sentence with a comma.)
+- **Bold the key phrase in each bullet**, then explain. e.g. "- **Confirming the root cause.** We analyzed the logs…" **Announcements only** — bold leads on DM bullets are exactly the over-formatting he flagged.
 - **Warm, open-ended close.** "Feedback welcome as always." / "Looking forward to it." / "Thanks for bearing with me." Never a cold sign-off.
 - **Never academic, never pompous.** If a line sounds like a consultant wrote it, rewrite it. He flags phrases like "Nous nous réjouissons d'échanger" as "too formal, not my style."
 
@@ -49,7 +85,9 @@ The personality dial goes up. This is where Arj is fun.
 - **Bold key terms**: **Dev All Hands**, **Linear**, **DAKI**.
 - **Sign-offs are casual**: "More to come. Stay tuned." / "Thanks for bearing with me on this. 🙏"
 
-### The emoji budget (Aug 2026 — he pushed back hard on this)
+### The emoji budget — announcements (Aug 2026 — he pushed back hard on this)
+
+Everything in this section is calibrated for an **announcement**. A DM gets 1–2 emoji, full stop; don't apply the 8–11 landing zone there.
 
 He got to a ~20-line announcement carrying 14 emojis and called it: *"there are too many and therefore they lose their importance."* But cutting to 3 was also wrong — *"loses the colorful aspect."* The landing zone is **8–11 for a long announcement**, and placement matters more than count.
 
@@ -76,7 +114,7 @@ When he asks for more colour, add these *before* adding emoji — they raise the
 - Don't imply someone is all-powerful / above the team (he rejected a 👑 crown emoji next to a colleague's new lead role — didn't want it to look like they were "King").
 - Don't guilt people for missing things ("actually show up 😉" was cut — the people who missed it had good reasons). Frame attendance as "the best way to stay in the loop," not an obligation with a wink.
 
-### Internal template (shape, not a fill-in-the-blank)
+### Announcement template (shape, not a fill-in-the-blank)
 
 ```
 📢 **[Topic] — [short hook]** 👇
@@ -159,7 +197,8 @@ Arjun
 - Keep his specific facts, numbers, names, and links exactly.
 - If he says "make it shorter," cut hard — he means it. Trim to the essential points, keep the bolded leads.
 - If he says "funnier" or "more colourful," lean into the parentheticals, the blockquote, and the headers **before** adding emoji; if "firmer," add clarity and directness while keeping warmth.
-- If he says "fewer emojis," don't cut to the bone — rebalance to 8–11 and fix *placement* (see the emoji budget). A flat cut loses the colour he wants to keep.
+- If he says "fewer emojis," don't cut to the bone — rebalance to 8–11 and fix *placement* (see the emoji budget). A flat cut loses the colour he wants to keep. In a DM this cue means something different: go to 1–2.
+- If he says "too much formatting" / "don't need all that for a Slack message," you picked the wrong weight, not the wrong words. Strip headers, blockquote and bold leads, keep the content and the link formatting, and re-read Step 0.5 before the next draft.
 - After a rewrite, if you made a judgment call or a correction, note it briefly at the end so he can veto.
 
 ## Quick reference — his actual phrasings to echo
