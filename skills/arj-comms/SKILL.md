@@ -16,9 +16,9 @@ Every message is one of two registers. Get this right first, because everything 
 
 | | **Internal (team)** | **External (client)** |
 |---|---|---|
-| Emojis | Yes — used to structure and add flair | **Never.** Zero emojis, ever. |
+| Emojis | Yes, but **selectively** — see the emoji budget below | **Never.** Zero emojis, ever. |
 | Tone | Warm, funny, human, a little irreverent | Professional, warm, approachable — not stiff, not academic |
-| Formatting | Bullets + bold + emoji headers | Short paragraphs; bullets only for a list of distinct points |
+| Formatting | Headers + blockquotes + bullets + bold, emoji as accent | Short paragraphs; bullets only for a list of distinct points |
 | Humor | Dry parenthetical asides, gentle ribbing | Light warmth only; no jokes |
 
 If it's ambiguous, ask which one. When he says "for my team" → internal. "For client" / "mail client" → external.
@@ -37,7 +37,7 @@ If it's ambiguous, ask which one. When he says "for my team" → internal. "For 
 
 The personality dial goes up. This is where Arj is fun.
 
-- **Emoji as structure and flare.** One emoji per bullet to anchor it (📊 🗓️ 🔧 🤖 💬), plus emphasis emojis in-line (😅 🙌 🚀 🍻). Section header often opens with 📢 or a topic emoji.
+- **Emoji as punctuation, never as bullet points.** See the emoji budget below — this is the rule he cares most about.
 - **Dry parenthetical humor.** The signature move. Examples he's kept:
   - "(yes, there's a difference 😄)"
   - "(looking especially at you, expensive-Mac owners 😅)"
@@ -49,6 +49,29 @@ The personality dial goes up. This is where Arj is fun.
 - **Bold key terms**: **Dev All Hands**, **Linear**, **DAKI**.
 - **Sign-offs are casual**: "More to come. Stay tuned." / "Thanks for bearing with me on this. 🙏"
 
+### The emoji budget (Aug 2026 — he pushed back hard on this)
+
+He got to a ~20-line announcement carrying 14 emojis and called it: *"there are too many and therefore they lose their importance."* But cutting to 3 was also wrong — *"loses the colorful aspect."* The landing zone is **8–11 for a long announcement**, and placement matters more than count.
+
+- **Emoji is punctuation, not a bullet character.** If every bullet has one, none of them mean anything — they've become bullet points with extra steps, and they're redundant with the bold lead that's already there.
+- **Keep it only where it means something the words don't.** ✅ = this rule is settled · 🚧 = wet paint, still moving · 🚦 = a gate you don't drive through · 🔐 = security · ⚖️ = legal · 🎯 = the point. Drop anything purely decorative (📚 next to "one generic hub" adds zero).
+- **Leave at least two bullets bare in every list.** The contrast is the whole mechanism — a 🚧 lands *because* the bullets above it don't have one.
+- **Load-bearing emoji that always stay**: 📢 on the header, 👇 after it, the 😄/😅 inside a parenthetical joke, and the 🙌/🙏 on the close. These carry tone, not structure. Cutting them makes him read colder than he is.
+- **A marked bullet at the end of a list makes it the punchline.** Four clean bullets building to 🚦 on the Migration Gate — that's the shape.
+
+### Colour without emoji (reach for these first when he wants more "fun")
+
+When he asks for more colour, add these *before* adding emoji — they raise the visual energy without diluting the emoji that are left:
+
+- **Blockquote (`>`) the premise.** Slack renders a vertical bar down the left. Real colour, zero emoji cost. Good for the one-line "why this exists" that sets up the announcement.
+- **`###` section headers** to break a long message into chapters. Slack renders them large and heavy. A message with two lists almost always needs them.
+- **More jokes.** This is the real lever and it has no ceiling. Emoji *signals* playfulness; the writing *is* playfulness. Examples he approved: "That's the bet, anyway." · "one sitting, one coffee, done." · a hard repeat for emphasis — "Nothing ships carrying an open fact. Nothing."
+- **Custom workspace emoji** (`:mendo:`) beat more standard ones — they add colour *and* brand.
+
+**Tried and rejected:** stripping emoji down to ~4 and replacing them with inline-code status tags (`DRAFT`, `BLOCKING`, `OPEN SINCE 31/07`) running down the bullets. It scans well and it's tempting, but he chose the warmer 8–11 emoji version over it. Don't reach for code-span tags as an emoji substitute — the emoji *is* the warmth, and a monospace status column reads more like a Jira board than like him. Inline code stays for what it's for: actual code, filenames, commands.
+
+**Reference shape he approved (Aug 2026):** header with 📢 👇 → blockquote premise → 🔗 link → `###` header → 4 bullets, two bare and two marked (✅ 🚧) → `###` header → 5 bullets, marked at the ends (🔐 … ⚖️ 🚦) → warm close with 🙌. Roughly 11 emoji, two section headers, one blockquote, three jokes.
+
 **Watch-outs he's corrected:**
 - Don't imply someone is all-powerful / above the team (he rejected a 👑 crown emoji next to a colleague's new lead role — didn't want it to look like they were "King").
 - Don't guilt people for missing things ("actually show up 😉" was cut — the people who missed it had good reasons). Frame attendance as "the best way to stay in the loop," not an obligation with a wink.
@@ -58,12 +81,30 @@ The personality dial goes up. This is where Arj is fun.
 ```
 📢 **[Topic] — [short hook]** 👇
 
-- [emoji] **[Key thing].** [One-line plain-language explanation, maybe a parenthetical aside.]
-    - [sub-bullet if nesting needed]
-- [emoji] **[Next thing].** […]
+> [One-line premise — the problem this solves. Blockquote gives it a colour bar.]
 
-[Warm, forward-looking close.] [emoji]
+[One sentence bridging premise → the thing.]
+
+🔗 **[Link, if there is one]**
+
+### [Section header — what it is]
+
+- **[Key thing].** [Plain-language explanation, maybe a parenthetical aside.]
+- **[Next thing].** […]
+- [emoji] **[Thing where the emoji means something].** […]
+- 🚧 **[Status caveat].** […]
+
+### [Section header — what's left / what's next]
+
+- 🔐 **[Thing].** […]
+- **[Thing].** […]
+- **[Thing].** […]
+- 🚦 **[The one that lands last].** [Marked bullet = punchline of the list.]
+
+[Warm, forward-looking close.] 🙌
 ```
+
+Roughly 8–11 emoji total at this length. Note the bare bullets — that's deliberate, not an omission to fill in.
 
 ## External (client) register
 
@@ -117,7 +158,8 @@ Arjun
 - Fix the tone to match the register; restructure into bullets if it's a wall of text.
 - Keep his specific facts, numbers, names, and links exactly.
 - If he says "make it shorter," cut hard — he means it. Trim to the essential points, keep the bolded leads.
-- If he says "funnier," lean into the parentheticals and emoji; if "firmer," add clarity and directness while keeping warmth.
+- If he says "funnier" or "more colourful," lean into the parentheticals, the blockquote, and the headers **before** adding emoji; if "firmer," add clarity and directness while keeping warmth.
+- If he says "fewer emojis," don't cut to the bone — rebalance to 8–11 and fix *placement* (see the emoji budget). A flat cut loses the colour he wants to keep.
 - After a rewrite, if you made a judgment call or a correction, note it briefly at the end so he can veto.
 
 ## Quick reference — his actual phrasings to echo
