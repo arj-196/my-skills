@@ -24,8 +24,16 @@ and guessing at it is how essential information gets lost.
 
 ```bash
 wc -lw docs/adr/*.md | sort -n
-grep -rho "ADR [0-9]\{4\}" src/ lib/ *.md docs/ 2>/dev/null | sort | uniq -c | sort -rn
+grep -rhozE --exclude-dir=__pycache__ "ADR[[:space:]#]*[0-9]{4}" src/ lib/ *.md docs/ 2>/dev/null \
+  | grep -aoE "[0-9]{4}" | sort | uniq -c | sort -rn
 ```
+
+The two-stage shape is deliberate: the first grep matches citations even when
+wrapped across a line break, the second extracts bare numbers from its output
+— which is NUL-separated under GNU grep (`-z` = null-data) but newline-separated
+under ugrep (where multiline matching is native and `-z` means decompression).
+Post-processing the match text with `tr`/`sed` breaks on one or the other;
+extracting numbers works on both.
 
 Then establish four facts:
 
@@ -45,6 +53,14 @@ Then establish four facts:
 > first (`| wc -l`), then read. A truncated grep once produced a confident
 > wrong claim that the docs cited no ADRs, when they cited fourteen including
 > ten file links the merge was about to break.
+
+> **A citation can wrap.** Comments break at ~80 columns, so `ADR` lands at the
+> end of one line and `0004` at the start of the next — sometimes behind a `#`
+> comment prefix. A line-anchored grep is blind to the wrapped form, which is
+> exactly how four stale citations once survived a full renumbering pass. Every
+> grep over citations must be the `-z` form above. `--exclude-dir=__pycache__`
+> is load-bearing too: `-I` is inert under `-z` (NUL-as-separator disables
+> binary detection), so stale compiled docstrings resurrect old numbers.
 
 ## Phase 1 — Confirm the reading
 
@@ -123,6 +139,10 @@ what they asked for.
   a single `re.sub` with a function, including the markdown-link form via
   alternation. Two sequential passes will re-match the number you just inserted
   and produce `ADR 0009 § Project Handles § short option letters`.
+- **Match the wrapped form.** The rewrite regex must tolerate a citation split
+  across a line break — `ADR[\s#]*(\d{4})`, run over whole-file text, not line
+  by line — and the rewrite should *unwrap* it: put `ADR NNNN` on one line
+  while reflowing, so the corpus converges on the form any grep can see.
 - **Anchor every citation into a multi-section ADR**:
   `(ADR 0004 § the removed-row field)`. A heading *prefix* is fine when the full
   heading is unwieldy, as long as it is unambiguous in that ADR.
@@ -171,7 +191,8 @@ It checks, and all must pass:
 
 - every source file still parses;
 - **the set of ADR numbers referenced anywhere == the set of ADR files present**
-  (this is the check that catches a missed rename);
+  (this is the check that catches a missed rename — including citations wrapped
+  across a line break, which any hand grep must also tolerate);
 - every `§` anchor resolves to a real `##` heading in the ADR it names;
 - every markdown link into `docs/adr/` resolves;
 - numbering is contiguous with no gaps.
@@ -183,7 +204,9 @@ comment reflowing touches real files and a broken docstring is a broken import.
 
 - `docs/adr/README.md`: the index table, the citation convention (number **and**
   section), the numbering rule with its verification command, and the
-  keep-retracted-rules rule.
+  keep-retracted-rules rule. The recorded command must be the break-tolerant
+  form from Phase 0 — pinning a line-anchored grep here is how wrapped
+  citations survive the *next* pass.
 - The repo's agent instructions (`CLAUDE.md` or equivalent): the same three
   rules in short form, since that is what an agent reads first.
 - If you renumbered, state plainly in the index that commit messages naming old

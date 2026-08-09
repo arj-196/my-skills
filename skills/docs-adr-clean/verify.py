@@ -6,6 +6,7 @@
 Checks, all of which must pass:
   1. every Python source file still parses (reflowing comments can break code)
   2. the set of ADR numbers referenced anywhere == the set of ADR files present
+     (including citations wrapped across a line break: "ADR\n0004")
   3. every "ADR NNNN § anchor" resolves to a real `##` heading in that ADR
   4. every markdown link into the ADR directory resolves to a file
   5. numbering is contiguous 0001..N with no gaps
@@ -20,7 +21,9 @@ import sys
 from pathlib import Path
 
 # A citation: number, plus an optional "§ anchor" terminated by punctuation.
-CITE = re.compile(r"ADR (\d{4})(?:\s*§\s*([^.,;:)\]\n]+))?")
+# \s+ not a literal space: the number may arrive via a joined continuation
+# line (see the wrap handling below) with its original indent collapsed.
+CITE = re.compile(r"ADR\s+(\d{4})(?:\s*§\s*([^.,;:)\]\n]+))?")
 LINK = re.compile(r"\]\(([^)]*adr/[^)]+\.md)\)")
 SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", "dist",
              "build", ".mypy_cache", ".pytest_cache", ".ruff_cache"}
@@ -80,7 +83,15 @@ def main() -> int:
         lines = p.read_text().split("\n")
         for i, ln in enumerate(lines):
             nxt = re.sub(r"^\s*#?\s*", "", lines[i + 1]) if i + 1 < len(lines) else ""
-            for m in CITE.finditer(ln):
+            # the citation itself may wrap between "ADR" and its number
+            # ("ADR\n0004", the continuation possibly behind a comment
+            # prefix). A line-anchored scan is blind to exactly the stale
+            # citations a renumbering pass leaves behind — join for matching,
+            # but skip matches starting in the tail: line i+1 scans those.
+            scan = ln + " " + nxt if re.search(r"ADR\s*$", ln) else ln
+            for m in CITE.finditer(scan):
+                if m.start() > len(ln):
+                    continue
                 n_cites += 1
                 num, sec = m.group(1), m.group(2)
                 referenced.add(num)
@@ -90,8 +101,9 @@ def main() -> int:
                     continue
                 # an anchor may wrap onto the next line, with the break either
                 # before or after the "§"
-                if sec is None and re.fullmatch(r"\s*§?\s*", ln[m.end():]):
-                    m2 = CITE.search(ln[m.start():] + " " + nxt)
+                if sec is None and re.fullmatch(r"\s*§?\s*", scan[m.end():]):
+                    tail = scan[m.start():] + (" " + nxt if scan is ln else "")
+                    m2 = CITE.search(tail)
                     sec = m2.group(2) if m2 else None
                 if sec is None:
                     n_real = len(anchorable(heads[num]))
