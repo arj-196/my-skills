@@ -10,11 +10,9 @@ Drain the queue of `ready-for-agent` GitHub issues: for each one, spawn a
 subagent in its own git worktree that either delivers a PR or refuses with a
 reason. At most N tasks in flight (default 2). Never auto-merge.
 
-**Model expectation.** This skill is meant to run in a **Fable** session — the
-orchestrator's reasoning is the session model, and a skill cannot switch it.
-If the current session model is not Fable, warn the user once ("orchestrator
-reasoning will run on <model>; launch a Fable session for the intended setup")
-and continue. Subagents run on **Opus** regardless.
+**Model.** The orchestrator's reasoning runs on whatever the session model is —
+any model is fine, no warning, no switching. Subagents run on **Opus**
+regardless.
 
 ## Arguments
 
