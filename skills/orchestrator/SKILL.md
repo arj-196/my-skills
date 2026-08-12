@@ -102,17 +102,20 @@ repo's default branch.
 > Otherwise:
 >
 > 1. Create branch `agent/<N>-<slug>` in your worktree.
-> 2. Implement using the `/implement` skill (it applies `/tdd` and ends with
->    `/code-review`). Keep the review **diff-scoped**: review the diff since
->    your branch point only — do not expand scope beyond the changes.
+> 2. Implement using the `/implement` skill, but **skip its `/code-review`
+>    step entirely** — do not run `/code-review` or spawn any review
+>    subagents, even though `/implement` ends with one. Reviews are
+>    deliberately excluded from orchestrated runs (they burn tokens and
+>    wall-clock); the PR itself is the review surface, and a human reviews
+>    there. `/tdd` still applies — green tests are your correctness gate.
 > 3. Commit, push the branch, and open a PR referencing the issue
 >    (`gh pr create` with "Closes #<N>" in the body).
-> 4. If code review surfaces work that outlives this PR: cross-check each
+> 4. If implementation surfaces work that outlives this PR: cross-check each
 >    item **by meaning** against open issues (list titles, read plausible
 >    collisions). Comment on an existing issue rather than duplicating. For
 >    genuinely new items, run `/to-tickets`; label the created tickets
 >    `needs-triage` (never `ready-for-agent`) and include the line
->    "Discovered during orchestrated implementation of #<N> (code review)".
+>    "Discovered during orchestrated implementation of #<N>".
 > 5. Do **not** edit issue #<N> itself — no labels, no comments; the
 >    orchestrator owns that.
 >
